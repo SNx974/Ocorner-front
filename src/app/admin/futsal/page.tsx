@@ -109,47 +109,57 @@ export default function FutsalPage() {
 
       {/* Slot modal */}
       {editSlot && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#111530] border border-white/10 rounded-2xl w-full max-w-lg p-6">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-[#111530] border border-white/10 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-lg p-6 pb-8 sm:pb-6">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-xl font-bold">Créneau {editSlot.hour}h00</h2>
-              <button onClick={() => setEditSlot(null)}><X size={20} className="text-white/40" /></button>
+              <button onClick={() => setEditSlot(null)} className="p-2 rounded-xl hover:bg-white/10">
+                <X size={20} className="text-white/40" />
+              </button>
             </div>
             <div className="space-y-3 mb-4">
               {editSlot.reservations.map((r, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2 shrink-0">
-                    <span className="text-white/40 text-xs">Terrain</span>
+                <div key={i} className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-3 shrink-0">
+                    <span className="text-white/40 text-xs">T</span>
                     <input type="number" min="1" max={MAX_TERRAINS} value={r.terrain} onChange={e => updateReservation(i, 'terrain', parseInt(e.target.value))}
-                      className="w-8 bg-transparent text-white text-sm font-bold text-center focus:outline-none" />
+                      className="w-8 bg-transparent text-white text-base font-bold text-center focus:outline-none" />
                   </div>
                   <input value={r.name} onChange={e => updateReservation(i, 'name', e.target.value)} placeholder="Nom du réservant…"
-                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-teal" />
-                  <button onClick={() => removeReservation(i)} className="p-2 rounded-lg hover:bg-red-500/10">
-                    <X size={14} className="text-red-400/60 hover:text-red-400" />
+                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-base focus:outline-none focus:border-teal" />
+                  <button onClick={() => removeReservation(i)} className="p-3 rounded-xl hover:bg-red-500/10 active:scale-95 transition-all">
+                    <X size={18} className="text-red-400/60" />
                   </button>
                 </div>
               ))}
               {editSlot.reservations.length < MAX_TERRAINS && (
-                <button onClick={addReservation} className="w-full py-2.5 border border-dashed border-white/20 rounded-xl text-white/40 text-sm hover:border-teal/40 hover:text-teal transition-all flex items-center justify-center gap-2">
-                  <Plus size={14} /> Ajouter un terrain
+                <button onClick={addReservation}
+                  className="w-full py-3.5 border border-dashed border-white/20 rounded-xl text-white/40 text-sm hover:border-teal/40 hover:text-teal transition-all flex items-center justify-center gap-2 active:scale-95">
+                  <Plus size={16} /> Ajouter un terrain
                 </button>
               )}
               {editSlot.reservations.length === 0 && (
-                <p className="text-center text-white/30 text-sm py-4">Aucune réservation — cliquez sur "+ Ajouter un terrain"</p>
+                <p className="text-center text-white/30 text-sm py-4">Aucune réservation · touchez "+ Ajouter un terrain"</p>
               )}
             </div>
-            <label className="flex items-center gap-3 cursor-pointer mb-4">
-              <div onClick={() => setEditSlot(s => s ? ({ ...s, active: !s.active }) : s)} className={`w-10 h-6 rounded-full transition-colors ${editSlot.active ? 'bg-teal' : 'bg-white/20'}`}>
+            <button type="button" onClick={() => setEditSlot(s => s ? ({ ...s, active: !s.active }) : s)}
+              className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl border mb-4 transition-all active:scale-95 ${
+                editSlot.active ? 'bg-teal/10 border-teal/30 text-teal' : 'bg-white/5 border-white/10 text-white/40'
+              }`}>
+              <span className="text-sm font-medium">Afficher sur le TV</span>
+              <div className={`w-10 h-6 rounded-full transition-colors ${editSlot.active ? 'bg-teal' : 'bg-white/20'}`}>
                 <div className={`w-4 h-4 bg-white rounded-full m-1 transition-transform ${editSlot.active ? 'translate-x-4' : ''}`} />
               </div>
-              <span className="text-sm text-white/60">Afficher sur le TV</span>
-            </label>
+            </button>
             {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
             <div className="flex gap-3">
-              <button onClick={() => setEditSlot(null)} className="flex-1 py-2.5 border border-white/20 rounded-xl text-white/60 text-sm">Annuler</button>
-              <button onClick={handleSave} className="flex-1 py-2.5 bg-brand-gradient text-night font-bold rounded-xl text-sm flex items-center justify-center gap-2">
-                <Check size={14} /> Enregistrer
+              <button onClick={() => setEditSlot(null)}
+                className="flex-1 py-3.5 border border-white/20 rounded-xl text-white/60 text-sm font-medium active:scale-95 transition-all">
+                Annuler
+              </button>
+              <button onClick={handleSave}
+                className="flex-1 py-3.5 bg-brand-gradient text-night font-bold rounded-xl text-sm flex items-center justify-center gap-2 active:scale-95 transition-all">
+                <Check size={16} /> Enregistrer
               </button>
             </div>
           </div>
@@ -162,7 +172,7 @@ export default function FutsalPage() {
           const slot = slotMap[hour];
           const hasReservations = slot && slot.reservations.length > 0;
           return (
-            <div key={hour} className={`flex items-center gap-4 rounded-xl px-5 py-3 border transition-all cursor-pointer group
+            <div key={hour} className={`flex items-center gap-4 rounded-xl px-5 py-4 border transition-all cursor-pointer group active:scale-[0.99]
               ${hasReservations && slot.active ? 'bg-green-500/5 border-green-500/20 hover:border-green-500/40' : 'bg-white/3 border-white/5 hover:border-white/15'}`}
               onClick={() => openSlot(hour)}
             >

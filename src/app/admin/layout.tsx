@@ -16,7 +16,8 @@ interface NavItem { href: string; label: string; icon: React.ElementType; roles:
 const ALL_NAV: NavItem[] = [
   { href: '/admin',                 label: 'Dashboard',            icon: LayoutDashboard, roles: ['ADMIN'] },
   { href: '/admin/cuisine',         label: 'Cuisine',              icon: ChefHat,         roles: ['CUISINE'] },
-  { href: '/admin/products',        label: 'Produits',             icon: Package,         roles: ['ADMIN', 'BAR'] },
+  { href: '/admin/products',        label: 'Produits',             icon: Package,         roles: ['ADMIN'] },
+  { href: '/admin/cuisine',         label: 'Produits',             icon: Package,         roles: ['BAR'] },
   { href: '/admin/categories',      label: 'Catégories',           icon: FolderOpen,      roles: ['ADMIN'] },
   { href: '/admin/happyhour',       label: 'Happy Hour',           icon: Clock,           roles: ['ADMIN'] },
   { href: '/admin/birthdays',       label: 'Anniversaires',        icon: Cake,            roles: ['ADMIN', 'BAR'] },
