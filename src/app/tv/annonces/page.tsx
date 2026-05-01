@@ -101,6 +101,11 @@ export default function TVAnnoncesPage() {
   const goNext = useCallback(() => {
     clearInterval(timerRef.current);
     clearInterval(progressRef.current);
+    // Destroy YT player before React re-renders to avoid removeChild conflict
+    if (ytPlayerRef.current) {
+      try { ytPlayerRef.current.destroy(); } catch { /**/ }
+      ytPlayerRef.current = null;
+    }
     setVisible(false);
     setTimeout(() => {
       setSlideIdx(i => {
@@ -138,26 +143,32 @@ export default function TVAnnoncesPage() {
     if (ytPlayerRef.current) { try { ytPlayerRef.current.destroy(); } catch { /**/ } ytPlayerRef.current = null; }
 
     if (isVid && vidId) {
-      // Init YT player when API is ready
+      // Fallback: advance after 10 minutes max if API doesn't fire
+      const fallback = setTimeout(goNext, 10 * 60 * 1000);
+
       const init = () => {
-        if (!document.getElementById('yt-player-div')) return;
-        ytPlayerRef.current = new window.YT.Player('yt-player-div', {
-          videoId: vidId,
-          playerVars: {
-            autoplay: 1, mute: 1, controls: 0, disablekb: 1,
-            rel: 0, iv_load_policy: 3, modestbranding: 1,
-            playsinline: 1, fs: 0, vq: 'hd1080',
-          },
-          events: {
-            onStateChange: (e: YTEvent) => {
-              if (e.data === 0) goNext(); // 0 = ended
+        if (!document.getElementById('yt-player-div')) { clearTimeout(fallback); return; }
+        try {
+          ytPlayerRef.current = new window.YT.Player('yt-player-div', {
+            videoId: vidId,
+            playerVars: {
+              autoplay: 1, mute: 1, controls: 0, disablekb: 1,
+              rel: 0, iv_load_policy: 3, modestbranding: 1,
+              playsinline: 1, fs: 0, vq: 'hd1080',
             },
-          },
-        });
+            events: {
+              onStateChange: (e: YTEvent) => {
+                if (e.data === 0) { clearTimeout(fallback); goNext(); }
+              },
+              onError: () => { clearTimeout(fallback); goNext(); },
+            },
+          });
+        } catch { clearTimeout(fallback); goNext(); }
       };
+
       if (window.YT?.Player) { init(); }
       else { window.onYouTubeIframeAPIReady = () => { ytApiReady.current = true; init(); }; }
-      return;
+      return () => clearTimeout(fallback);
     }
 
     if (slides.length <= 1) return;
@@ -230,8 +241,7 @@ export default function TVAnnoncesPage() {
 
           if (ann.type === 'video') {
             return (
-              <div className="absolute inset-0 bg-black" style={{ pointerEvents: 'none', overflow: 'hidden' }}>
-                {/* YT.Player monte l'iframe dans ce div via l'API officielle */}
+              <div key={`video-${ann._id}`} className="absolute inset-0 bg-black" style={{ pointerEvents: 'none', overflow: 'hidden' }}>
                 <div id="yt-player-div"
                   style={{ position: 'absolute', top: '-10%', left: '-5%', width: '110%', height: '120%', pointerEvents: 'none' }} />
               </div>
