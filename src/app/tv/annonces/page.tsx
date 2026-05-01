@@ -43,6 +43,8 @@ export default function TVAnnoncesPage() {
 
   const timerRef    = useRef<ReturnType<typeof setInterval>>();
   const progressRef = useRef<ReturnType<typeof setInterval>>();
+  const slidesRef   = useRef<Slide[]>([]);
+  const slideIdxRef = useRef(0);
 
   const fetchData = useCallback(async () => {
     const today = toDateStr(new Date());
@@ -74,50 +76,84 @@ export default function TVAnnoncesPage() {
   const relevantSlots = futsalSlots.filter(s => s.active && s.reservations.length > 0 && s.hour >= currentHour).slice(0, 4);
   const slotBirthdays = birthdays.filter(b => b.active && (!b.date || b.date === todayStr) && b.slot === slotIndex).slice(0, 5);
 
-  // Flat slide sequence: each announcement + birthday block + futsal block
   const slides: Slide[] = [
     ...announcements.map(a => ({ kind: 'announcement' as SlideKind, announcement: a })),
     ...(slotBirthdays.length ? [{ kind: 'birthdays' as SlideKind }] : []),
     ...(relevantSlots.length ? [{ kind: 'futsal' as SlideKind }] : []),
   ];
 
-  // Rotation
+  // Keep refs in sync for use in event listeners
+  slidesRef.current  = slides;
+  slideIdxRef.current = slideIdx;
+
+  const goNext = useCallback(() => {
+    clearInterval(timerRef.current);
+    clearInterval(progressRef.current);
+    setVisible(false);
+    setTimeout(() => {
+      setSlideIdx(i => {
+        const next = (i + 1) % (slidesRef.current.length || 1);
+        slideIdxRef.current = next;
+        return next;
+      });
+      setVisible(true);
+      setProgress(0);
+    }, FADE_DURATION);
+  }, []);
+
+  // Listen for YouTube video end via postMessage
   useEffect(() => {
-    if (slides.length <= 1) return;
+    const handler = (e: MessageEvent) => {
+      try {
+        const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+        // YouTube IFrame API: info event with playerState 0 = ended
+        if (data?.event === 'infoDelivery' && data?.info?.playerState === 0) {
+          goNext();
+        }
+      } catch { /* ignore */ }
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, [goNext]);
+
+  // Start timer for non-video slides
+  useEffect(() => {
+    if (!slides.length) return;
+    const current = slides[slideIdx % slides.length];
+    const isVideo = current?.kind === 'announcement' && current.announcement?.type === 'video';
+
+    clearInterval(timerRef.current);
+    clearInterval(progressRef.current);
     setProgress(0);
-    timerRef.current = setInterval(() => {
-      setVisible(false);
-      setTimeout(() => {
-        setSlideIdx(i => (i + 1) % slides.length);
-        setVisible(true);
-        setProgress(0);
-      }, FADE_DURATION);
-    }, SLIDE_DELAY);
+
+    if (isVideo) return; // video drives its own advance via postMessage
+
+    if (slides.length <= 1) return;
+
+    timerRef.current = setInterval(goNext, SLIDE_DELAY);
     progressRef.current = setInterval(() => {
       setProgress(p => Math.min(p + 100 / (SLIDE_DELAY / 100), 100));
     }, 100);
+
     return () => { clearInterval(timerRef.current); clearInterval(progressRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slides.length]);
+  }, [slideIdx, slides.length]);
 
-  // Keep slideIdx in bounds if slides shrink
   const safeIdx = slides.length ? slideIdx % slides.length : 0;
   const current = slides[safeIdx];
-  const count   = slotBirthdays.length;
-
   const isEmpty = !slides.length;
+  const isFullscreen = current?.kind === 'announcement';
+  const isVideo = current?.kind === 'announcement' && current.announcement?.type === 'video';
+  const count   = slotBirthdays.length;
 
   const nameSize = count === 1 ? 'text-[8vw]' : count === 2 ? 'text-[5.5vw]' : count === 3 ? 'text-[4.5vw]' : 'text-[3.8vw]';
   const catSize  = count === 1 ? 'text-[2.8vw]' : count === 2 ? 'text-[2.2vw]' : 'text-[1.8vw]';
   const padY     = count === 1 ? 'py-12' : count === 2 ? 'py-8' : 'py-5';
   const gridCls  = count <= 2 ? `grid grid-cols-${Math.max(count,1)}` : count === 3 ? 'grid grid-cols-3' : count === 4 ? 'grid grid-cols-2' : 'grid grid-cols-3';
 
-  const isFullscreen = current?.kind === 'announcement';
-
   return (
     <div className="min-h-screen bg-night flex flex-col overflow-hidden cursor-none" style={{ height: '100vh' }}>
 
-      {/* Header — visible uniquement pour birthdays / futsal */}
       {!isFullscreen && (
         <div className="flex items-center justify-between px-12 py-5 border-b border-white/10 shrink-0">
           <div className="flex items-center gap-4">
@@ -133,7 +169,6 @@ export default function TVAnnoncesPage() {
         </div>
       )}
 
-      {/* Main content */}
       <div className="flex-1 relative overflow-hidden"
         style={{ opacity: visible ? 1 : 0, transition: `opacity ${FADE_DURATION}ms ease` }}>
 
@@ -144,7 +179,7 @@ export default function TVAnnoncesPage() {
           </div>
         )}
 
-        {/* ── ANNOUNCEMENT SLIDE (image / video / message) ── */}
+        {/* ANNOUNCEMENT */}
         {current?.kind === 'announcement' && current.announcement && (() => {
           const ann = current.announcement;
           const color = ann.eventColor || '#0fa3a3';
@@ -166,43 +201,41 @@ export default function TVAnnoncesPage() {
           if (ann.type === 'video') {
             const vid = getYouTubeId(ann.videoUrl);
             return (
-              <div className="absolute inset-0 bg-black">
-                {vid && <iframe
-                  src={`https://www.youtube.com/embed/${vid}?autoplay=1&mute=1&loop=1&playlist=${vid}&controls=0&modestbranding=1&rel=0&iv_load_policy=3&vq=hd1080`}
-                  className="w-full h-full border-0"
-                  allow="autoplay; encrypted-media; fullscreen"
-                  allowFullScreen
-                  style={{ width: '100%', height: '100%' }}
-                />}
+              <div className="absolute inset-0 bg-black" style={{ pointerEvents: 'none' }}>
+                {vid && (
+                  // Container 16:9 centré et agrandi pour masquer les barres YouTube
+                  <div className="absolute" style={{ top: '-10%', left: '-5%', width: '110%', height: '120%' }}>
+                    <iframe
+                      key={vid}
+                      src={`https://www.youtube.com/embed/${vid}?autoplay=1&mute=1&controls=0&disablekb=1&loop=0&rel=0&iv_load_policy=3&modestbranding=1&playsinline=1&enablejsapi=1&vq=hd1080&fs=0`}
+                      className="w-full h-full border-0"
+                      allow="autoplay; encrypted-media"
+                      style={{ pointerEvents: 'none' }}
+                    />
+                  </div>
+                )}
               </div>
             );
           }
 
           if (ann.type === 'message') return (
             <div className="absolute inset-0" style={{ background: '#0a0d1f' }}>
-              {/* Image en fond si présente */}
               {ann.eventImage && (
                 <>
                   <img src={`${BASE}${ann.eventImage}`} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ opacity: 0.15 }} />
-                  <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, #0a0d1fE0 0%, #0a0d1f90 50%, #0a0d1fE0 100%)` }} />
+                  <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #0a0d1fE0 0%, #0a0d1f90 50%, #0a0d1fE0 100%)' }} />
                 </>
               )}
-              {/* Halo coloré */}
               <div className="absolute inset-0" style={{
                 background: `radial-gradient(ellipse at 20% 50%, ${color}30 0%, transparent 55%), radial-gradient(ellipse at 80% 50%, ${color}20 0%, transparent 55%)`
               }} />
-              {/* Contenu centré */}
               <div className="absolute inset-0 flex flex-col items-center justify-center px-24 text-center">
                 {ann.eventImage && (
                   <img src={`${BASE}${ann.eventImage}`} alt="" className="h-40 object-contain mb-8 rounded-2xl"
                     style={{ filter: `drop-shadow(0 0 50px ${color}90)` }} />
                 )}
-                <p className="text-[2.2vw] font-bold uppercase tracking-[0.3em] mb-4" style={{ color }}>
-                  {ann.eventName}
-                </p>
-                <p className="text-[8vw] font-black text-white leading-none tracking-tight">
-                  {ann.title}
-                </p>
+                <p className="text-[2.2vw] font-bold uppercase tracking-[0.3em] mb-4" style={{ color }}>{ann.eventName}</p>
+                <p className="text-[8vw] font-black text-white leading-none tracking-tight">{ann.title}</p>
                 <div className="flex items-center gap-12 mt-10">
                   {ann.eventTime && (
                     <div className="flex items-center gap-4">
@@ -235,7 +268,7 @@ export default function TVAnnoncesPage() {
           return null;
         })()}
 
-        {/* ── ANNIVERSAIRES ── */}
+        {/* ANNIVERSAIRES */}
         {current?.kind === 'birthdays' && slotBirthdays.length > 0 && (
           <div className="flex flex-col items-center justify-center gap-5 w-full h-full px-12 py-8">
             <p className="text-[2vw] text-white/40 font-medium tracking-widest uppercase text-center shrink-0"
@@ -264,7 +297,7 @@ export default function TVAnnoncesPage() {
           </div>
         )}
 
-        {/* ── FUTSAL ── */}
+        {/* FUTSAL */}
         {current?.kind === 'futsal' && (
           <div className="flex flex-col gap-5 justify-center h-full px-12 py-8">
             {relevantSlots.map((slot, si) => (
@@ -293,32 +326,35 @@ export default function TVAnnoncesPage() {
         )}
       </div>
 
-      {/* Dots + barre de progression */}
-      {!isFullscreen && slides.length > 1 && (
-        <div className="shrink-0">
-          <div className="flex justify-center gap-2 py-2">
-            {slides.map((_, i) => (
-              <div key={i} className="rounded-full transition-all duration-500"
-                style={{ width: i === safeIdx ? 24 : 8, height: 8, background: i === safeIdx ? 'white' : 'rgba(255,255,255,0.2)' }} />
-            ))}
-          </div>
-          <div className="h-1 bg-white/5">
-            <div className="h-full bg-brand-gradient" style={{ width: `${progress}%`, transition: 'width 0.1s linear' }} />
-          </div>
-        </div>
-      )}
-
-      {isFullscreen && slides.length > 1 && (
+      {/* Dots + progress — cachés pendant vidéo */}
+      {!isVideo && slides.length > 1 && (
         <>
-          <div className="absolute bottom-14 left-1/2 -translate-x-1/2 flex gap-3 z-20">
-            {slides.map((_, i) => (
-              <div key={i} className="rounded-full transition-all duration-500"
-                style={{ width: i === safeIdx ? 24 : 8, height: 8, background: i === safeIdx ? 'white' : 'rgba(255,255,255,0.3)' }} />
-            ))}
-          </div>
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10 z-20">
-            <div className="h-full bg-white/60" style={{ width: `${progress}%`, transition: 'width 0.1s linear' }} />
-          </div>
+          {!isFullscreen && (
+            <div className="shrink-0">
+              <div className="flex justify-center gap-2 py-2">
+                {slides.map((_, i) => (
+                  <div key={i} className="rounded-full transition-all duration-500"
+                    style={{ width: i === safeIdx ? 24 : 8, height: 8, background: i === safeIdx ? 'white' : 'rgba(255,255,255,0.2)' }} />
+                ))}
+              </div>
+              <div className="h-1 bg-white/5">
+                <div className="h-full bg-brand-gradient" style={{ width: `${progress}%`, transition: 'width 0.1s linear' }} />
+              </div>
+            </div>
+          )}
+          {isFullscreen && (
+            <>
+              <div className="absolute bottom-14 left-1/2 -translate-x-1/2 flex gap-3 z-20">
+                {slides.map((_, i) => (
+                  <div key={i} className="rounded-full transition-all duration-500"
+                    style={{ width: i === safeIdx ? 24 : 8, height: 8, background: i === safeIdx ? 'white' : 'rgba(255,255,255,0.3)' }} />
+                ))}
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10 z-20">
+                <div className="h-full bg-white/60" style={{ width: `${progress}%`, transition: 'width 0.1s linear' }} />
+              </div>
+            </>
+          )}
         </>
       )}
 
