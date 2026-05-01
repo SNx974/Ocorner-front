@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Users, QrCode, Trash2, CheckCircle, Circle, X, ChevronDown, ChevronUp, Lock, Unlock } from 'lucide-react';
+import { Users, QrCode, Trash2, CheckCircle, Circle, X, ChevronDown, ChevronUp, Lock, Unlock, Smartphone } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { getSocket } from '@/lib/socket';
 
@@ -24,6 +25,7 @@ function timeAgo(date: string) {
 }
 
 export default function FutsalSessionsPage() {
+  const router = useRouter();
   const [sessions, setSessions]     = useState<Session[]>([]);
   const [expanded, setExpanded]     = useState<Set<string>>(new Set());
   const [qrTerrain, setQrTerrain]   = useState<number | null>(null);
@@ -190,6 +192,11 @@ export default function FutsalSessionsPage() {
                       </div>
 
                       <div className="flex items-center gap-2">
+                        <button onClick={e => { e.stopPropagation(); router.push(`/admin/futsal-sessions/${session._id}`); }}
+                          className="p-2 rounded-lg hover:bg-white/10 text-white/40 hover:text-white transition-colors"
+                          title="Vue tablette">
+                          <Smartphone size={15} />
+                        </button>
                         <button onClick={e => { e.stopPropagation(); toggleClose(session._id); }}
                           className="p-2 rounded-lg hover:bg-white/10 text-white/40 hover:text-white transition-colors"
                           title={session.closed ? 'Rouvrir' : 'Fermer'}>

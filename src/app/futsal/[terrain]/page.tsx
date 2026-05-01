@@ -64,7 +64,6 @@ export default function FutsalJoinPage() {
   );
 
   const validCount = players.map(p => p.trim()).filter(Boolean).length;
-  const pricePerPlayer = validCount >= MIN_PLAYERS ? (TOTAL_PRICE / validCount).toFixed(2) : null;
 
   return (
     <div className="min-h-screen bg-[#0a0d1f] text-white">
@@ -129,15 +128,8 @@ export default function FutsalJoinPage() {
             </button>
           </div>
 
-          {/* Prix indicatif */}
-          {pricePerPlayer && (
-            <div className="bg-green-500/10 border border-green-500/20 rounded-2xl px-5 py-4 flex items-center justify-between">
-              <span className="text-white/60 text-sm">Prix par joueur</span>
-              <span className="text-green-400 font-black text-2xl">{pricePerPlayer}€</span>
-            </div>
-          )}
 
-          {error && (
+{error && (
             <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-red-400 text-sm">
               {error}
             </div>
