@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import MenuCard from '@/components/MenuCard';
 import { api } from '@/lib/api';
 import { getSocket } from '@/lib/socket';
@@ -107,6 +108,18 @@ export default function TVMenuPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* QR Code overlay */}
+      <div className="fixed bottom-16 right-8 flex flex-col items-center gap-2 bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-3">
+        <QRCodeSVG
+          value={typeof window !== 'undefined' ? `${window.location.origin}/` : '/'}
+          size={100}
+          bgColor="transparent"
+          fgColor="#ffffff"
+          level="M"
+        />
+        <span className="text-white/50 text-xs tracking-widest uppercase">Scanner le menu</span>
       </div>
 
       {/* Category dots + progress */}
