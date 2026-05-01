@@ -17,6 +17,7 @@ export default function TVMenuPage() {
   const [activeCatIndex, setActiveCatIndex] = useState(0);
   const [time, setTime] = useState('');
   const [progress, setProgress] = useState(0);
+  const [menuUrl, setMenuUrl] = useState('');
   const timerRef = useRef<ReturnType<typeof setInterval>>();
   const progressRef = useRef<ReturnType<typeof setInterval>>();
 
@@ -27,6 +28,12 @@ export default function TVMenuPage() {
     ]);
     setCategories(cats.filter((c: Category) => c.showOnTV !== false));
     setProducts(prods);
+  }, []);
+
+  useEffect(() => {
+    api.get('/api/settings/menu_url').then(r => {
+      setMenuUrl(r.value || (typeof window !== 'undefined' ? window.location.origin + '/' : ''));
+    });
   }, []);
 
   useEffect(() => {
@@ -111,16 +118,20 @@ export default function TVMenuPage() {
       </div>
 
       {/* QR Code overlay */}
-      <div className="fixed bottom-16 right-8 flex flex-col items-center gap-2 bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-3">
-        <QRCodeSVG
-          value={typeof window !== 'undefined' ? `${window.location.origin}/` : '/'}
-          size={100}
-          bgColor="transparent"
-          fgColor="#ffffff"
-          level="M"
-        />
-        <span className="text-white/50 text-xs tracking-widest uppercase">Scanner le menu</span>
-      </div>
+      {menuUrl && (
+        <div className="fixed bottom-16 right-8 flex flex-col items-center gap-2 bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-3">
+          <div className="bg-white rounded-xl p-2">
+            <QRCodeSVG
+              value={menuUrl}
+              size={100}
+              bgColor="#ffffff"
+              fgColor="#0a0d1f"
+              level="M"
+            />
+          </div>
+          <span className="text-white/50 text-xs tracking-widest uppercase">Scanner le menu</span>
+        </div>
+      )}
 
       {/* Category dots + progress */}
       <div className="shrink-0 pb-4">
