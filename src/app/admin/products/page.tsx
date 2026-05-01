@@ -25,6 +25,14 @@ export default function ProductsPage() {
   const [uploading, setUploading] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [userRole, setUserRole] = useState<string>('ADMIN');
+
+  useEffect(() => {
+    const u = localStorage.getItem('ocorner_user');
+    if (u) setUserRole(JSON.parse(u).role);
+  }, []);
+
+  const isAdmin = userRole === 'ADMIN';
 
   const fetchAll = useCallback(async () => {
     const [p, c] = await Promise.all([api.get('/api/products?all=1'), api.get('/api/categories?all=1')]);
@@ -118,14 +126,16 @@ export default function ProductsPage() {
           <h1 className="text-3xl font-bold text-white">Produits</h1>
           <p className="text-white/40 mt-1">{products.length} produits au total</p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={() => setShowImport(true)} className="flex items-center gap-2 px-4 py-2.5 border border-teal/40 text-teal rounded-xl text-sm hover:bg-teal/10 transition-colors">
-            <FileSpreadsheet size={16} /> Importer Excel
-          </button>
-          <button onClick={openAdd} className="flex items-center gap-2 px-5 py-2.5 bg-brand-gradient text-night font-bold rounded-xl text-sm hover:opacity-90 transition-opacity">
-            <Plus size={16} /> Ajouter
-          </button>
-        </div>
+        {isAdmin && (
+          <div className="flex gap-2">
+            <button onClick={() => setShowImport(true)} className="flex items-center gap-2 px-4 py-2.5 border border-teal/40 text-teal rounded-xl text-sm hover:bg-teal/10 transition-colors">
+              <FileSpreadsheet size={16} /> Importer Excel
+            </button>
+            <button onClick={openAdd} className="flex items-center gap-2 px-5 py-2.5 bg-brand-gradient text-night font-bold rounded-xl text-sm hover:opacity-90 transition-opacity">
+              <Plus size={16} /> Ajouter
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Filters */}
@@ -247,12 +257,16 @@ export default function ProductsPage() {
               <button onClick={() => toggle(p._id)} className="p-2 rounded-lg hover:bg-white/10 transition-colors" title={p.visible ? 'Masquer' : 'Afficher'}>
                 {p.visible ? <Eye size={16} className="text-teal" /> : <EyeOff size={16} className="text-white/30" />}
               </button>
-              <button onClick={() => openEdit(p)} className="p-2 rounded-lg hover:bg-white/10 transition-colors">
-                <Pencil size={16} className="text-white/60" />
-              </button>
-              <button onClick={() => remove(p._id)} className="p-2 rounded-lg hover:bg-red-500/10 transition-colors">
-                <Trash2 size={16} className="text-red-400/60 hover:text-red-400" />
-              </button>
+              {isAdmin && (
+                <>
+                  <button onClick={() => openEdit(p)} className="p-2 rounded-lg hover:bg-white/10 transition-colors">
+                    <Pencil size={16} className="text-white/60" />
+                  </button>
+                  <button onClick={() => remove(p._id)} className="p-2 rounded-lg hover:bg-red-500/10 transition-colors">
+                    <Trash2 size={16} className="text-red-400/60 hover:text-red-400" />
+                  </button>
+                </>
+              )}
             </div>
           </div>
         ))}

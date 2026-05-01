@@ -19,7 +19,10 @@ export default function LoginPage() {
       const data = await api.post('/api/auth/login', form);
       localStorage.setItem('ocorner_token', data.token);
       localStorage.setItem('ocorner_user', JSON.stringify(data.user));
-      router.push('/admin');
+      const role = data.user.role;
+      if (role === 'CUISINE') router.push('/admin/cuisine');
+      else if (role === 'BAR') router.push('/admin/birthdays');
+      else router.push('/admin');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erreur de connexion');
     } finally {
