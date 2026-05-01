@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { LayoutDashboard, Package, FolderOpen, Clock, LogOut, ChevronRight, Cake, Users, ImageIcon, QrCode } from 'lucide-react';
+import { LayoutDashboard, Package, FolderOpen, Clock, LogOut, ChevronRight, Cake, Users, ImageIcon, QrCode, Shield } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -40,6 +40,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: '/admin/futsal', label: 'Futsal — Réservations', icon: Users },
     ...(user.role === 'ADMIN' ? [{ href: '/admin/annonces', label: 'Annonces Physiques', icon: ImageIcon }] : []),
     ...(user.role === 'ADMIN' ? [{ href: '/admin/qrcode', label: 'QR Code Menu', icon: QrCode }] : []),
+    { href: '/admin/futsal-sessions', label: 'Sessions Futsal', icon: Shield },
   ];
 
   return (
