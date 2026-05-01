@@ -5,6 +5,16 @@ import { api } from '@/lib/api';
 import { getSocket } from '@/lib/socket';
 import { getCurrentSlotIndex, SLOTS } from '@/lib/birthdaySlots';
 
+// Extend window for YouTube IFrame API
+declare global {
+  interface Window {
+    YT: { Player: new (el: string | HTMLElement, opts: object) => YTPlayer };
+    onYouTubeIframeAPIReady: () => void;
+  }
+}
+interface YTPlayer { destroy(): void; }
+interface YTEvent { data: number; }
+
 const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 interface Birthday { _id: string; name: string; category: string; date: string; active: boolean; slot: number; }
@@ -45,6 +55,8 @@ export default function TVAnnoncesPage() {
   const progressRef = useRef<ReturnType<typeof setInterval>>();
   const slidesRef   = useRef<Slide[]>([]);
   const slideIdxRef = useRef(0);
+  const ytPlayerRef = useRef<YTPlayer | null>(null);
+  const ytApiReady  = useRef(false);
 
   const fetchData = useCallback(async () => {
     const today = toDateStr(new Date());
@@ -101,40 +113,58 @@ export default function TVAnnoncesPage() {
     }, FADE_DURATION);
   }, []);
 
-  // Listen for YouTube video end via postMessage
+  // Load YouTube IFrame API script once
   useEffect(() => {
-    const handler = (e: MessageEvent) => {
-      try {
-        const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
-        // YouTube IFrame API: info event with playerState 0 = ended
-        if (data?.event === 'infoDelivery' && data?.info?.playerState === 0) {
-          goNext();
-        }
-      } catch { /* ignore */ }
-    };
-    window.addEventListener('message', handler);
-    return () => window.removeEventListener('message', handler);
-  }, [goNext]);
+    if (document.getElementById('yt-api-script')) { ytApiReady.current = !!window.YT; return; }
+    const script = document.createElement('script');
+    script.id  = 'yt-api-script';
+    script.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(script);
+    window.onYouTubeIframeAPIReady = () => { ytApiReady.current = true; };
+  }, []);
 
-  // Start timer for non-video slides
+  // Start timer for non-video slides / init YT player for video slides
   useEffect(() => {
     if (!slides.length) return;
     const current = slides[slideIdx % slides.length];
-    const isVideo = current?.kind === 'announcement' && current.announcement?.type === 'video';
+    const isVid   = current?.kind === 'announcement' && current.announcement?.type === 'video';
+    const vidId   = isVid ? getYouTubeId(current.announcement!.videoUrl) : null;
 
     clearInterval(timerRef.current);
     clearInterval(progressRef.current);
     setProgress(0);
 
-    if (isVideo) return; // video drives its own advance via postMessage
+    // Destroy previous YT player
+    if (ytPlayerRef.current) { try { ytPlayerRef.current.destroy(); } catch { /**/ } ytPlayerRef.current = null; }
+
+    if (isVid && vidId) {
+      // Init YT player when API is ready
+      const init = () => {
+        if (!document.getElementById('yt-player-div')) return;
+        ytPlayerRef.current = new window.YT.Player('yt-player-div', {
+          videoId: vidId,
+          playerVars: {
+            autoplay: 1, mute: 1, controls: 0, disablekb: 1,
+            rel: 0, iv_load_policy: 3, modestbranding: 1,
+            playsinline: 1, fs: 0, vq: 'hd1080',
+          },
+          events: {
+            onStateChange: (e: YTEvent) => {
+              if (e.data === 0) goNext(); // 0 = ended
+            },
+          },
+        });
+      };
+      if (window.YT?.Player) { init(); }
+      else { window.onYouTubeIframeAPIReady = () => { ytApiReady.current = true; init(); }; }
+      return;
+    }
 
     if (slides.length <= 1) return;
-
-    timerRef.current = setInterval(goNext, SLIDE_DELAY);
+    timerRef.current    = setInterval(goNext, SLIDE_DELAY);
     progressRef.current = setInterval(() => {
       setProgress(p => Math.min(p + 100 / (SLIDE_DELAY / 100), 100));
     }, 100);
-
     return () => { clearInterval(timerRef.current); clearInterval(progressRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slideIdx, slides.length]);
@@ -199,21 +229,11 @@ export default function TVAnnoncesPage() {
           );
 
           if (ann.type === 'video') {
-            const vid = getYouTubeId(ann.videoUrl);
             return (
-              <div className="absolute inset-0 bg-black" style={{ pointerEvents: 'none' }}>
-                {vid && (
-                  // Container 16:9 centré et agrandi pour masquer les barres YouTube
-                  <div className="absolute" style={{ top: '-10%', left: '-5%', width: '110%', height: '120%' }}>
-                    <iframe
-                      key={vid}
-                      src={`https://www.youtube.com/embed/${vid}?autoplay=1&mute=1&controls=0&disablekb=1&loop=0&rel=0&iv_load_policy=3&modestbranding=1&playsinline=1&enablejsapi=1&vq=hd1080&fs=0`}
-                      className="w-full h-full border-0"
-                      allow="autoplay; encrypted-media"
-                      style={{ pointerEvents: 'none' }}
-                    />
-                  </div>
-                )}
+              <div className="absolute inset-0 bg-black" style={{ pointerEvents: 'none', overflow: 'hidden' }}>
+                {/* YT.Player monte l'iframe dans ce div via l'API officielle */}
+                <div id="yt-player-div"
+                  style={{ position: 'absolute', top: '-10%', left: '-5%', width: '110%', height: '120%', pointerEvents: 'none' }} />
               </div>
             );
           }
